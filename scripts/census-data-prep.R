@@ -79,5 +79,6 @@ leaflet() %>%
                             "Other race (%):", 100*site_df$pother, "<br>",
                             "Latinx (%):", 100*site_df$platinx, "<br>",
                             "White (%):", 100*site_df$pwhite, "<br>",
+                            "Housing Units:", round(site_df$hu,0), "<br>",
                             "Estimated Mean HH Income (US$):", site_df$mnhhinc))
   
