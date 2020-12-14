@@ -7,18 +7,29 @@ options(tigris_use_cache = TRUE)
 library(sf)
 library(leaflet)
 
+
 ## define data directory
-datadir <- 'C:/Users/dhardy/Dropbox/r_data/gce-99'
+datadir <- '/Users/dhardy/Dropbox/r_data/gce-99'
 
 ## set variables
-YR <- 2017
+YR <- 2018
+vars <- load_variables(YR, 'acs5', cache = FALSE)
 ST <- 'GA'
 CO <- c('McIntosh', 'Glynn', 'Liberty')
+
+## variables set for ACS data 2013-2019
 VAR = c(white = "B03002_003E", black = "B03002_004E",
         native_american = "B03002_005E", asian = "B03002_006E",
         hawaiian = "B03002_007E", other = "B03002_008E",
         multiracial = "B03002_009E", latinx = "B03002_012E", total = "B03002_001E",
         medhhinc = "B19049_001E", agghhinc = "B19025_001E", hu = "B25001_001E")
+
+# ## variables set for ACS data 2012-2005; note 5-yr ACS data don't start until 2009
+# VAR = c(white = "B03002_003", black = "B03002_004",
+#         nativ_american = "B03002_005", asian = "B03002_006",
+#         hawaiian = "B03002_007", other = "B03002_008",
+#         multiracial = "B03002_009", latinx = "B03002_012", total = "B03002_001",
+#         mdhhinc = "B19049_001", agghhinc = "B19025_001", hu = "B25001_001")
 
 ## import site boundary
 site <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
@@ -29,6 +40,7 @@ site <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
 df <- get_acs(geography = 'block group',
               variables = VAR,
               state = ST,
+              year = YR,
               county = CO,
               output = 'wide',
               geometry = TRUE,
@@ -173,7 +185,8 @@ leaflet() %>%
   addPolylines(data = site,
               color = 'green') %>%
   addPolygons(data = site_df,
-              popup = paste("People of Color (%):", 100*site_df$propPOC, "<br>",
+              popup = paste("ACS Data:", YR, "<br>",
+                            "People of Color (%):", 100*site_df$propPOC, "<br>",
                             "Black (%):", 100*site_df$pblack, "<br>",
                             "Other race (%):", 100*site_df$pother, "<br>",
                             "Latinx (%):", 100*site_df$platinx, "<br>",

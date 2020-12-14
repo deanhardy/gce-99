@@ -8,10 +8,10 @@ library(sf)
 library(leaflet)
 
 ## define data directory
-datadir <- 'C:/Users/dhardy/Dropbox/r_data/gce-99'
+datadir <- '/Users/dhardy/Dropbox/r_data/gce-99'
 
 ## set variables
-YR <- 2017
+YR <- 2019
 ST <- 'GA'
 CO <- c('McIntosh', 'Glynn', 'Liberty')
 VAR = c(white = "B03002_003E", black = "B03002_004E",
@@ -29,6 +29,7 @@ site <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
 df <- get_acs(geography = 'block group',
               variables = VAR,
               state = ST,
+              year = YR, 
               county = CO,
               output = 'wide',
               geometry = TRUE,
@@ -74,7 +75,9 @@ leaflet() %>%
   addPolylines(data = site,
               color = 'green') %>%
   addPolygons(data = site_df,
-              popup = paste("People of Color (%):", 100*site_df$propPOC, "<br>",
+              popup = paste(
+                            "2014-2018 ACS Data", "<br>",
+                            "People of Color (%):", 100*site_df$propPOC, "<br>",
                             "Black (%):", 100*site_df$pblack, "<br>",
                             "Other race (%):", 100*site_df$pother, "<br>",
                             "Latinx (%):", 100*site_df$platinx, "<br>",
