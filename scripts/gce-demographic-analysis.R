@@ -12,7 +12,7 @@ library(leaflet)
 datadir <- '/Users/dhardy/Dropbox/r_data/gce-99'
 
 ## set variables
-YR <- c(2013, 2015, 2016, 2017, 2018, 2019, 2020)
+YR <- c(2013, 2015, 2016, 2017, 2018, 2019, 2020, 2021)
 # vars <- load_variables(YR, 'acs5', cache = FALSE)
 ST <- 'GA'
 CO <- c('McIntosh', 'Glynn', 'Liberty')
@@ -36,6 +36,14 @@ VAR = c(white = "B03002_003E", black = "B03002_004E",
 site <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
   mutate(sqkm_site = as.numeric(st_area(geometry) / 1e6)) %>%
   st_transform(4326)
+
+## import watershed boundary
+wbd <- st_read(file.path(datadir, 'shapefiles/nhd_georgia/Shape/WBDHU10.shp')) %>%
+  mutate(sqkm_site = as.numeric(st_area(geometry) / 1e6)) %>%
+  st_transform(4326) %>%
+  filter(huc10 %in% c('0306020407', '0306020408', '0307010605'))
+  
+wbd2 <- st_as_sf(st_union(wbd))
 
 ## define function following stackoverflow post
 # https://stackoverflow.com/questions/18887382/how-to-calculate-the-median-on-grouped-dataset
@@ -105,8 +113,8 @@ site_df <- percBGinSITE %>%
   mutate(pwhite = round(white/tot_pop, 2), pblack = round(black/tot_pop, 2), pother = round(other/tot_pop, 2), 
          platinx = round(latinx/tot_pop, 2), popden = round(tot_pop/ALAND, 2), propPOC = round(1 - pwhite, 2),
          mnhhinc = round(agghhinc/hu, 0), pland = round((ALAND * 0.000001)/sqkm_site, 2),
-         year = YR[[i]]) %>%
-  dplyr::select(year, tot_pop, popden, sqkm_site, pland, pwhite, pblack, pother, platinx, propPOC, hu, mnhhinc) %>%
+         yr = YR[[i]]) %>%
+  dplyr::select(yr, tot_pop, popden, sqkm_site, pland, pwhite, pblack, pother, platinx, propPOC, hu, mnhhinc) %>%
   merge(site) %>%
   st_as_sf()
 
@@ -181,8 +189,42 @@ GCE <- rbind(GCE, site_df)
 #########################################
 ## plot data
 #########################################
-ggplot(GCE, aes(year, tot_pop)) + 
-  geom_line()
+library(lubridate)
+
+GCE2 <- st_set_geometry(GCE, NULL) %>%
+  mutate(year = ymd(yr, truncated = 2L))
+
+png(paste0(datadir, '/GCE_tot_pop.png'), width = 7, height =5, units = 'in', res = 150)
+ggplot(GCE2, aes(year, tot_pop)) + 
+  geom_line() +
+  scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
+  labs(title = 'GCE Domain - Total Population', x = 'Year', y = 'Population') + 
+  theme_bw()
+dev.off()
+
+png(paste0(datadir, '/GCE_propPOC.png'), width = 7, height =5, units = 'in', res = 150)
+ggplot(GCE2, aes(year, propPOC)) + 
+  geom_line() +
+  scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
+  labs(title = 'GCE Domain - Proportion People of Color', x = 'Year', y = 'Proportion People of Color') + 
+  theme_bw()
+dev.off()
+
+png(paste0(datadir, '/GCE_gmedian.png'), width = 7, height =5, units = 'in', res = 150)
+ggplot(GCE2, aes(year, gmedian)) + 
+  geom_line() +
+  scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
+  labs(title = 'GCE Domain - Median Household Income', x = 'Year', y = 'Median Household Income ($)') + 
+  theme_bw()
+dev.off()
+
+png(paste0(datadir, '/GCE_hu.png'), width = 7, height =5, units = 'in', res = 150)
+ggplot(GCE2, aes(year, hu)) + 
+  geom_line() +
+  scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
+  labs(title = 'GCE Domain - Number Households', x = 'Year', y = 'Households (#)') + 
+  theme_bw()
+dev.off()
 
 #########################################
 ## map data
@@ -191,7 +233,9 @@ ggplot(GCE, aes(year, tot_pop)) +
 leaflet() %>%
   addTiles(group = 'Open Street Map') %>%
   setView(lng = -81, lat = 31.5, zoom = 9) %>%
-  addPolylines(data = site,
+  # addPolygons(data = site,
+  #             color = 'green') %>%
+  addPolygons(data = OUT,
               color = 'green') %>%
   addPolygons(data = site_df,
               popup = paste("ACS Data:", YR, "<br>",
@@ -204,4 +248,14 @@ leaflet() %>%
                             "Estimated Mean HH Income (US$):", site_df$mnhhinc, "<br>",
                             "Estimated Median HH Income (US$):", round(site_df$gmedian, 0)))
   
+#########################################
+## exploring downloading watershed data
+#########################################
+library(sbtools)
+library(dataRetrieval)
+
+huc8 <- item_file_download(sb_id = "5a83025ce4b00f54eb32956b",
+                   names = "huc8_05010007_example.zip",
+                   destinations = "huc8_05010007_example.zip",
+                   overwrite_file = TRUE)
               
