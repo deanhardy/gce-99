@@ -15,7 +15,7 @@ datadir <- '/Users/dhardy/Dropbox/r_data/gce-99'
 YR <- c(2013, 2015, 2016, 2017, 2018, 2019, 2020, 2021)
 # vars <- load_variables(YR, 'acs5', cache = FALSE)
 ST <- 'GA'
-CO <- c('McIntosh', 'Glynn', 'Liberty')
+CO <- c('McIntosh', 'Glynn', 'Liberty', 'Long', 'Wayne')
 GCE <- NULL
 
 ## variables set for ACS data
@@ -43,7 +43,9 @@ wbd <- st_read(file.path(datadir, 'shapefiles/nhd_georgia/Shape/WBDHU10.shp')) %
   st_transform(4326) %>%
   filter(huc10 %in% c('0306020407', '0306020408', '0307010605'))
   
-wbd2 <- st_as_sf(st_union(wbd))
+wbd2 <- st_as_sf(st_union(wbd)) %>%
+  rename(geometry = x) %>%
+  mutate(sqkm_site = as.numeric(st_area(geometry) / 1e6))
 
 ## define function following stackoverflow post
 # https://stackoverflow.com/questions/18887382/how-to-calculate-the-median-on-grouped-dataset
@@ -72,6 +74,7 @@ GMedian <- function(frequencies, intervals, sep = NULL, trim = NULL) {
   unname(L + (n_2 - B)/G * w)
 }
 
+site <- wbd2
 ## for loop to assess demographics of site over assigned time period 
 for (i in 1:length(YR)) {
   OUT <- get_acs(geography = 'block group',
@@ -186,6 +189,7 @@ GCE <- rbind(GCE, site_df)
 
 }
 
+
 #########################################
 ## plot data
 #########################################
@@ -194,35 +198,35 @@ library(lubridate)
 GCE2 <- st_set_geometry(GCE, NULL) %>%
   mutate(year = ymd(yr, truncated = 2L))
 
-png(paste0(datadir, '/GCE_tot_pop.png'), width = 7, height =5, units = 'in', res = 150)
+png(paste0(datadir, '/WBD_tot_pop.png'), width = 7, height =5, units = 'in', res = 150)
 ggplot(GCE2, aes(year, tot_pop)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'GCE Domain - Total Population', x = 'Year', y = 'Population') + 
+  labs(title = 'WBD Domain - Total Population', x = 'Year', y = 'Population') + 
   theme_bw()
 dev.off()
 
-png(paste0(datadir, '/GCE_propPOC.png'), width = 7, height =5, units = 'in', res = 150)
+png(paste0(datadir, '/WBD_propPOC.png'), width = 7, height =5, units = 'in', res = 150)
 ggplot(GCE2, aes(year, propPOC)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'GCE Domain - Proportion People of Color', x = 'Year', y = 'Proportion People of Color') + 
+  labs(title = 'WBD Domain - Proportion People of Color', x = 'Year', y = 'Proportion People of Color') + 
   theme_bw()
 dev.off()
 
-png(paste0(datadir, '/GCE_gmedian.png'), width = 7, height =5, units = 'in', res = 150)
+png(paste0(datadir, '/WBD_gmedian.png'), width = 7, height =5, units = 'in', res = 150)
 ggplot(GCE2, aes(year, gmedian)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'GCE Domain - Median Household Income', x = 'Year', y = 'Median Household Income ($)') + 
+  labs(title = 'WBD Domain - Median Household Income', x = 'Year', y = 'Median Household Income ($)') + 
   theme_bw()
 dev.off()
 
-png(paste0(datadir, '/GCE_hu.png'), width = 7, height =5, units = 'in', res = 150)
+png(paste0(datadir, '/WBD_hu.png'), width = 7, height =5, units = 'in', res = 150)
 ggplot(GCE2, aes(year, hu)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'GCE Domain - Number Households', x = 'Year', y = 'Households (#)') + 
+  labs(title = 'WBD Domain - Number Households', x = 'Year', y = 'Households (#)') + 
   theme_bw()
 dev.off()
 
@@ -237,6 +241,8 @@ leaflet() %>%
   #             color = 'green') %>%
   addPolygons(data = OUT,
               color = 'green') %>%
+  addPolygons(data = wbd2,
+              color = 'red') %>%
   addPolygons(data = site_df,
               popup = paste("ACS Data:", YR, "<br>",
                             "People of Color (%):", 100*site_df$propPOC, "<br>",
@@ -248,14 +254,4 @@ leaflet() %>%
                             "Estimated Mean HH Income (US$):", site_df$mnhhinc, "<br>",
                             "Estimated Median HH Income (US$):", round(site_df$gmedian, 0)))
   
-#########################################
-## exploring downloading watershed data
-#########################################
-library(sbtools)
-library(dataRetrieval)
-
-huc8 <- item_file_download(sb_id = "5a83025ce4b00f54eb32956b",
-                   names = "huc8_05010007_example.zip",
-                   destinations = "huc8_05010007_example.zip",
-                   overwrite_file = TRUE)
               
