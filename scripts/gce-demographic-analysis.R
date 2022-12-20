@@ -12,12 +12,13 @@ library(leaflet)
 datadir <- '/Users/dhardy/Dropbox/r_data/gce-99'
 
 ## set variables
-YR <- 2018
-vars <- load_variables(YR, 'acs5', cache = FALSE)
+YR <- c(2013, 2015, 2016, 2017, 2018, 2019, 2020)
+# vars <- load_variables(YR, 'acs5', cache = FALSE)
 ST <- 'GA'
 CO <- c('McIntosh', 'Glynn', 'Liberty')
+GCE <- NULL
 
-## variables set for ACS data 2013-2019
+## variables set for ACS data
 VAR = c(white = "B03002_003E", black = "B03002_004E",
         native_american = "B03002_005E", asian = "B03002_006E",
         hawaiian = "B03002_007E", other = "B03002_008E",
@@ -36,23 +37,51 @@ site <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
   mutate(sqkm_site = as.numeric(st_area(geometry) / 1e6)) %>%
   st_transform(4326)
 
-## import census data for area
-df <- get_acs(geography = 'block group',
-              variables = VAR,
-              state = ST,
-              year = YR,
-              county = CO,
-              output = 'wide',
-              geometry = TRUE,
-              keep_geo_vars = TRUE) %>%
-  st_transform(4326) %>%
-  mutate(sqkm_bg = as.numeric(st_area(geometry)) / 1e6, mnhhinc = agghhinc/hu,
-         propPOC = 1 - (white/total)) %>%
-  dplyr::select(GEOID, ALAND, AWATER, sqkm_bg, total, white, black, native_american, asian, hawaiian,
-                other, multiracial, latinx, propPOC, medhhinc, agghhinc, hu, mnhhinc)
+## define function following stackoverflow post
+# https://stackoverflow.com/questions/18887382/how-to-calculate-the-median-on-grouped-dataset
+## but revised per variables from 
+# https://www.mathsisfun.com/data/frequency-grouped-mean-median-mode.html
+## B modified to account for when median group is the 0-9999 bin
+GMedian <- function(frequencies, intervals, sep = NULL, trim = NULL) {
+  # If "sep" is specified, the function will try to create the 
+  #   required "intervals" matrix. "trim" removes any unwanted 
+  #   characters before attempting to convert the ranges to numeric.
+  if (!is.null(sep)) {
+    if (is.null(trim)) pattern <- ""
+    else if (trim == "cut") pattern <- "\\[|\\]|\\(|\\)"
+    else pattern <- trim
+    intervals <- sapply(strsplit(gsub(pattern, "", intervals), sep), as.numeric)
+  }
+  
+  cf <- cumsum(frequencies)
+  Midrow <- findInterval(max(cf)/2, cf) + 1
+  L <- intervals[1, Midrow]      # lower class boundary of the group containing the median 
+  w <- diff(intervals[, Midrow]) # width of median class
+  G <- frequencies[Midrow]       # frequency of median class
+  B <- ifelse(Midrow > 1, cf[Midrow - 1], as.vector(0))  # cumulative frequency of the groups before median group
+  n_2 <- max(cf)/2               # total observations divided by 2
+  
+  unname(L + (n_2 - B)/G * w)
+}
+
+## for loop to assess demographics of site over assigned time period 
+for (i in 1:length(YR)) {
+  OUT <- get_acs(geography = 'block group',
+                 variables = VAR,
+                 state = ST,
+                 year = YR[[i]],
+                 county = CO,
+                 output = 'wide',
+                 geometry = TRUE,
+                 keep_geo_vars = TRUE) %>%
+    st_transform(4326) %>%
+    mutate(sqkm_bg = as.numeric(st_area(geometry)) / 1e6, mnhhinc = agghhinc/hu,
+           propPOC = 1 - (white/total)) %>%
+    dplyr::select(GEOID, ALAND, AWATER, sqkm_bg, total, white, black, native_american, asian, hawaiian,
+                  other, multiracial, latinx, propPOC, medhhinc, agghhinc, hu, mnhhinc)
 
 ## define intersection between buffer zones and block groups
-int <- as.tibble(st_intersection(site, df))
+int <- as.tibble(st_intersection(site, OUT))
 
 ## proportional area adjustment/allocation method
 percBGinSITE <- int %>%
@@ -75,13 +104,11 @@ site_df <- percBGinSITE %>%
             sqkm_site = mean(sqkm_site), ALAND = sum(ALAND)) %>%
   mutate(pwhite = round(white/tot_pop, 2), pblack = round(black/tot_pop, 2), pother = round(other/tot_pop, 2), 
          platinx = round(latinx/tot_pop, 2), popden = round(tot_pop/ALAND, 2), propPOC = round(1 - pwhite, 2),
-         mnhhinc = round(agghhinc/hu, 0), pland = round((ALAND * 0.000001)/sqkm_site, 2)) %>%
-  dplyr::select(tot_pop, popden, sqkm_site, pland, pwhite, pblack, pother, platinx, propPOC, hu, mnhhinc) %>%
+         mnhhinc = round(agghhinc/hu, 0), pland = round((ALAND * 0.000001)/sqkm_site, 2),
+         year = YR[[i]]) %>%
+  dplyr::select(year, tot_pop, popden, sqkm_site, pland, pwhite, pblack, pother, platinx, propPOC, hu, mnhhinc) %>%
   merge(site) %>%
   st_as_sf()
-
-
-
 
 #########################################################
 ## estimate median household incomes within buffer zones
@@ -97,7 +124,7 @@ gm <- get_acs(geography = "block group",
                  table = 'B19001',
                  state = ST,
                  county = CO,
-                 year = YR) %>%
+                 year = YR[[i]]) %>%
     select(-NAME, -moe) %>%
     rename(households = estimate) %>%
     filter(variable != 'B19001_001') %>%
@@ -135,33 +162,7 @@ gm <- get_acs(geography = "block group",
                                                                                                                               ifelse(variable == 'B19001_017', NA, variable))))))))))))))))) %>%
     mutate(interval = paste(bin_min, bin_max, sep = "-"))
 
-## define function following stackoverflow post
-# https://stackoverflow.com/questions/18887382/how-to-calculate-the-median-on-grouped-dataset
-## but revised per variables from 
-# https://www.mathsisfun.com/data/frequency-grouped-mean-median-mode.html
-## B modified to account for when median group is the 0-9999 bin
-GMedian <- function(frequencies, intervals, sep = NULL, trim = NULL) {
-  # If "sep" is specified, the function will try to create the 
-  #   required "intervals" matrix. "trim" removes any unwanted 
-  #   characters before attempting to convert the ranges to numeric.
-  if (!is.null(sep)) {
-    if (is.null(trim)) pattern <- ""
-    else if (trim == "cut") pattern <- "\\[|\\]|\\(|\\)"
-    else pattern <- trim
-    intervals <- sapply(strsplit(gsub(pattern, "", intervals), sep), as.numeric)
-  }
-  
-  cf <- cumsum(frequencies)
-  Midrow <- findInterval(max(cf)/2, cf) + 1
-  L <- intervals[1, Midrow]      # lower class boundary of the group containing the median 
-  w <- diff(intervals[, Midrow]) # width of median class
-  G <- frequencies[Midrow]       # frequency of median class
-  B <- ifelse(Midrow > 1, cf[Midrow - 1], as.vector(0))  # cumulative frequency of the groups before median group
-  n_2 <- max(cf)/2               # total observations divided by 2
-  
-  unname(L + (n_2 - B)/G * w)
-}
-
+## estimate hh median income
 gm2 <- gm %>%
   left_join(percBGinSITE, by = "GEOID") %>%
   filter(perc_bginsite != 'NA') %>%
@@ -173,7 +174,15 @@ gm2 <- gm %>%
 ## attache gmedian estimates for hh income
 site_df <- merge(site_df, gm2)
 
+GCE <- rbind(GCE, site_df)
 
+}
+
+#########################################
+## plot data
+#########################################
+ggplot(GCE, aes(year, tot_pop)) + 
+  geom_line()
 
 #########################################
 ## map data
