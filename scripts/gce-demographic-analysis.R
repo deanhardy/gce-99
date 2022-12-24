@@ -33,7 +33,7 @@ VAR = c(white = "B03002_003E", black = "B03002_004E",
 #         mdhhinc = "B19049_001", agghhinc = "B19025_001", hu = "B25001_001")
 
 ## import site boundary
-site <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
+gce <- st_read(file.path(datadir, 'shapefiles/GCE_LTER_Boundary.shp')) %>%
   mutate(sqkm_site = as.numeric(st_area(geometry) / 1e6)) %>%
   st_transform(4326)
 
@@ -199,36 +199,47 @@ GCE2 <- st_set_geometry(GCE, NULL) %>%
   mutate(year = ymd(yr, truncated = 2L))
 
 png(paste0(datadir, '/WBD_tot_pop.png'), width = 7, height =5, units = 'in', res = 150)
-ggplot(GCE2, aes(year, tot_pop)) + 
+pop <- ggplot(GCE2, aes(year, tot_pop)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'WBD Domain - Total Population', x = 'Year', y = 'Population') + 
-  theme_bw()
+  labs(title = 'Population', x = 'Year', y = 'Population') + 
+  theme_bw(base_size = 15)
+pop
 dev.off()
 
 png(paste0(datadir, '/WBD_propPOC.png'), width = 7, height =5, units = 'in', res = 150)
-ggplot(GCE2, aes(year, propPOC)) + 
+poc <- ggplot(GCE2, aes(year, propPOC)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'WBD Domain - Proportion People of Color', x = 'Year', y = 'Proportion People of Color') + 
-  theme_bw()
+  labs(title = 'People of Color', x = 'Year', y = 'Proportion People of Color') + 
+  theme_bw(base_size = 15)
+poc
 dev.off()
 
 png(paste0(datadir, '/WBD_gmedian.png'), width = 7, height =5, units = 'in', res = 150)
-ggplot(GCE2, aes(year, gmedian)) + 
+gmedian <- ggplot(GCE2, aes(year, gmedian)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'WBD Domain - Median Household Income', x = 'Year', y = 'Median Household Income ($)') + 
-  theme_bw()
+  labs(title = 'Household Income', x = 'Year', y = 'Median Household Income ($)') + 
+  theme_bw(base_size = 15)
+gmedian
 dev.off()
 
 png(paste0(datadir, '/WBD_hu.png'), width = 7, height =5, units = 'in', res = 150)
-ggplot(GCE2, aes(year, hu)) + 
+hu <- ggplot(GCE2, aes(year, hu)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'WBD Domain - Number Households', x = 'Year', y = 'Households (#)') + 
-  theme_bw()
+  labs(title = 'Households', x = 'Year', y = 'Households (#)') + 
+  theme_bw(base_size = 15)
+hu
 dev.off()
+
+library(gridExtra)
+## export as pngs and tiffs
+png(file.path(datadir, "figures/gce-demographic.png"), width = 13.33, height = 6, units = 'in', res = 150)
+grid.arrange(pop, poc, gmedian, hu, ncol = 2)
+dev.off()
+
 
 #########################################
 ## map data
@@ -237,21 +248,28 @@ dev.off()
 leaflet() %>%
   addTiles(group = 'Open Street Map') %>%
   setView(lng = -81, lat = 31.5, zoom = 9) %>%
-  # addPolygons(data = site,
-  #             color = 'green') %>%
   addPolygons(data = OUT,
-              color = 'green') %>%
-  addPolygons(data = wbd2,
-              color = 'red') %>%
-  addPolygons(data = site_df,
-              popup = paste("ACS Data:", YR, "<br>",
-                            "People of Color (%):", 100*site_df$propPOC, "<br>",
-                            "Black (%):", 100*site_df$pblack, "<br>",
-                            "Other race (%):", 100*site_df$pother, "<br>",
-                            "Latinx (%):", 100*site_df$platinx, "<br>",
-                            "White (%):", 100*site_df$pwhite, "<br>",
-                            "Housing Units:", round(site_df$hu,0), "<br>",
-                            "Estimated Mean HH Income (US$):", site_df$mnhhinc, "<br>",
-                            "Estimated Median HH Income (US$):", round(site_df$gmedian, 0)))
+              color = 'blue',
+              fill = FALSE,
+              opacity = 1,
+              weight = 1) %>%
+  addPolygons(data = site,
+              color = 'red',
+              weight = 1) %>%
+  addPolygons(data = gce,
+              color = 'green',
+              fill = FALSE,
+              opacity = 1,
+              weight = 5)
+  # addPolygons(data = site_df,
+  #             popup = paste("ACS Data:", YR, "<br>",
+  #                           "People of Color (%):", 100*site_df$propPOC, "<br>",
+  #                           "Black (%):", 100*site_df$pblack, "<br>",
+  #                           "Other race (%):", 100*site_df$pother, "<br>",
+  #                           "Latinx (%):", 100*site_df$platinx, "<br>",
+  #                           "White (%):", 100*site_df$pwhite, "<br>",
+  #                           "Housing Units:", round(site_df$hu,0), "<br>",
+  #                           "Estimated Mean HH Income (US$):", site_df$mnhhinc, "<br>",
+  #                           "Estimated Median HH Income (US$):", round(site_df$gmedian, 0)))
   
               
