@@ -271,5 +271,42 @@ leaflet() %>%
   #                           "Housing Units:", round(site_df$hu,0), "<br>",
   #                           "Estimated Mean HH Income (US$):", site_df$mnhhinc, "<br>",
   #                           "Estimated Median HH Income (US$):", round(site_df$gmedian, 0)))
+
+#############
+## static map
+#############
+library(tmap)
+library(tmaptools)
+library(osmdata)
+library(rJava)
+library(OpenStreetMap)
+## help: https://ajsmit.github.io/Intro_R_Official/mapping-google.html
+
+bb <- getbb('Sapelo Island, GA')
+
+# define the spatial extent to OpenStreetMap
+lat1 <- bb[2,1]
+lat2 <- bb[2,2]
+lon1 <- bb[1,1]
+lon2 <- bb[1,2]
+
+# other 'type' options are "osm", "maptoolkit-topo", "bing", "stamen-toner",
+# "stamen-watercolor", "esri", "esri-topo", "nps", "apple-iphoto", "skobbler";
+# play around with 'zoom' to see what happens; 10 seems just right to me
+sap_map <- openmap(c(lat2, lon1), c(lat1, lon2), zoom = 10,
+                  type = "osm", mergeTiles = TRUE)
+
+# reproject onto WGS84
+sap_map2 <- openproj(sap_map)
+
+OpenStreetMap::autoplot.OpenStreetMap(sap_map2) + 
+  coord_sf(data = wbd2) + 
+  xlab("Longitude (°W)") + ylab("Latitude (°N)")
   
-              
+tm_shape(site) + 
+  tm_polygons(col = 'red', alpha = 0.5) + 
+  tm_shape(gce) + 
+  tm_borders(col = 'green') +
+  tm_basemap()
+
+  
