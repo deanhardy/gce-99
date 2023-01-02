@@ -12,8 +12,8 @@ library(leaflet)
 datadir <- '/Users/dhardy/Dropbox/r_data/gce-99'
 
 ## set variables
-YR <- c(2013, 2015, 2016, 2017, 2018, 2019, 2020, 2021)
-# vars <- load_variables(YR, 'acs5', cache = FALSE)
+YR <- c(2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021)
+vars <- load_variables(2021, 'acs5', cache = FALSE)
 ST <- 'GA'
 CO <- c('McIntosh', 'Glynn', 'Liberty', 'Long', 'Wayne')
 GCE <- NULL
@@ -24,6 +24,13 @@ VAR = c(white = "B03002_003E", black = "B03002_004E",
         hawaiian = "B03002_007E", other = "B03002_008E",
         multiracial = "B03002_009E", latinx = "B03002_012E", total = "B03002_001E",
         medhhinc = "B19049_001E", agghhinc = "B19025_001E", hu = "B25001_001E")
+
+## variable set for ACS data with MOE
+VAR2 = c(white = "B03002_003", black = "B03002_004",
+        native_american = "B03002_005", asian = "B03002_006",
+        hawaiian = "B03002_007", other = "B03002_008",
+        multiracial = "B03002_009", latinx = "B03002_012", total = "B03002_001",
+        medhhinc = "B19049_001", agghhinc = "B19025_001", hu = "B25001_001")
 
 # ## variables set for ACS data 2012-2005; note 5-yr ACS data don't start until 2009
 # VAR = c(white = "B03002_003", black = "B03002_004",
@@ -81,13 +88,20 @@ for (i in 1:length(YR)) {
                  variables = VAR,
                  state = ST,
                  year = YR[[i]],
+                 # year = 2021,
                  county = CO,
                  output = 'wide',
                  geometry = TRUE,
-                 keep_geo_vars = TRUE) %>%
+                 keep_geo_vars = TRUE,
+                 cache_table = TRUE) %>%
     st_transform(4326) %>%
     mutate(sqkm_bg = as.numeric(st_area(geometry)) / 1e6, mnhhinc = agghhinc/hu,
            propPOC = 1 - (white/total)) %>%
+    # mutate(sqkm_bg = as.numeric(st_area(geometry)) / 1e6, mnhhincM = agghhincM/huM,  mnhhincE = agghhincE/huE,
+    #        propPOCE = 1 - (whiteE/totalE),  propPOCM = 1 - (whiteM/totalM)) %>%
+    # dplyr::select(GEOID, ALAND, AWATER, sqkm_bg, totalE, totalM, whiteE, whiteM, blackE, blackM, native_americanE, native_americanM, 
+    #               asianE, asianM, hawaiianE, hawaiianM, otherE, otherM, multiracialE, multiracialM, latinxE, latinxM, 
+    #               propPOCE, propPOCM, medhhincE, medhhincM, agghhincE, agghhincM, huE, huM, mnhhincE, mnhhincM)
     dplyr::select(GEOID, ALAND, AWATER, sqkm_bg, total, white, black, native_american, asian, hawaiian,
                   other, multiracial, latinx, propPOC, medhhinc, agghhinc, hu, mnhhinc)
 
@@ -202,7 +216,7 @@ png(paste0(datadir, '/WBD_tot_pop.png'), width = 7, height =5, units = 'in', res
 pop <- ggplot(GCE2, aes(year, tot_pop)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'Population', x = 'Year', y = 'Population') + 
+  labs(title = 'Population', x = 'Year', y = 'Number') + 
   theme_bw(base_size = 15)
 pop
 dev.off()
@@ -211,7 +225,7 @@ png(paste0(datadir, '/WBD_propPOC.png'), width = 7, height =5, units = 'in', res
 poc <- ggplot(GCE2, aes(year, propPOC)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'People of Color', x = 'Year', y = 'Proportion People of Color') + 
+  labs(title = 'People of Color', x = 'Year', y = 'Proportion') + 
   theme_bw(base_size = 15)
 poc
 dev.off()
@@ -220,7 +234,7 @@ png(paste0(datadir, '/WBD_gmedian.png'), width = 7, height =5, units = 'in', res
 gmedian <- ggplot(GCE2, aes(year, gmedian)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'Household Income', x = 'Year', y = 'Median Household Income ($)') + 
+  labs(title = 'Median Household Income', x = 'Year', y = 'Income ($)') + 
   theme_bw(base_size = 15)
 gmedian
 dev.off()
@@ -229,7 +243,7 @@ png(paste0(datadir, '/WBD_hu.png'), width = 7, height =5, units = 'in', res = 15
 hu <- ggplot(GCE2, aes(year, hu)) + 
   geom_line() +
   scale_x_date(date_breaks = '1 year', date_labels = '%Y') +
-  labs(title = 'Households', x = 'Year', y = 'Households (#)') + 
+  labs(title = 'Households', x = 'Year', y = 'Number') + 
   theme_bw(base_size = 15)
 hu
 dev.off()
@@ -293,20 +307,28 @@ lon2 <- bb[1,2]
 # other 'type' options are "osm", "maptoolkit-topo", "bing", "stamen-toner",
 # "stamen-watercolor", "esri", "esri-topo", "nps", "apple-iphoto", "skobbler";
 # play around with 'zoom' to see what happens; 10 seems just right to me
-sap_map <- openmap(c(lat2, lon1), c(lat1, lon2), zoom = 10,
+sap_map <- openmap(c(lat2, lon1), c(lat1, lon2), zoom = 11,
                   type = "osm", mergeTiles = TRUE)
 
 # reproject onto WGS84
 sap_map2 <- openproj(sap_map)
 
 OpenStreetMap::autoplot.OpenStreetMap(sap_map2) + 
-  coord_sf(data = wbd2) + 
+  # geom_sf() + 
   xlab("Longitude (°W)") + ylab("Latitude (°N)")
   
 tm_shape(site) + 
   tm_polygons(col = 'red', alpha = 0.5) + 
   tm_shape(gce) + 
   tm_borders(col = 'green') +
-  tm_basemap()
+  tm_basemap() + 
+  tm_shape(map) + 
+  tm_raster()
 
-  
+
+library(ggmap)
+map <- get_map("Sapelo Island, Georgia", zoom = 9, source = "google")
+ggmap(map) + 
+  # coord_sf(crs = st_crs(4326)) + # force the ggplot2 map to be in 3857
+  # geom_sf(data = gce, aes(fill = area), inherit.aes = FALSE) + 
+  geom_sf(data = wbd2, aes(fill = sqkm_site), inherit.aes= FALSE)
