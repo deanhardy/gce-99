@@ -267,7 +267,7 @@ leaflet() %>%
               fill = FALSE,
               opacity = 1,
               weight = 1) %>%
-  addPolygons(data = site,
+  addPolygons(data = wbd,
               color = 'red',
               weight = 1) %>%
   addPolygons(data = gce,
