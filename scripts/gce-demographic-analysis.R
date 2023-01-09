@@ -6,6 +6,7 @@ library(tidycensus)
 options(tigris_use_cache = TRUE)
 library(sf)
 library(leaflet)
+library(ggmap)
 
 
 ## define data directory
@@ -82,7 +83,14 @@ GMedian <- function(frequencies, intervals, sep = NULL, trim = NULL) {
 }
 
 site <- wbd2
+
+## working on adding decennial data, though need to figure out how to automate correcting for boundaries changes
+# get_decennial()
+
+
+####################################################################
 ## for loop to assess demographics of site over assigned time period 
+####################################################################
 for (i in 1:length(YR)) {
   OUT <- get_acs(geography = 'block group',
                  variables = VAR,
@@ -311,24 +319,24 @@ sap_map <- openmap(c(lat2, lon1), c(lat1, lon2), zoom = 11,
                   type = "osm", mergeTiles = TRUE)
 
 # reproject onto WGS84
-sap_map2 <- openproj(sap_map)
+# sap_map2 <- openproj(sap_map)
 
-OpenStreetMap::autoplot.OpenStreetMap(sap_map2) + 
-  # geom_sf() + 
-  xlab("Longitude (°W)") + ylab("Latitude (°N)")
+# OpenStreetMap::autoplot.OpenStreetMap(sap_map2) + 
+  # # geom_sf() + 
+  # xlab("Longitude (°W)") + ylab("Latitude (°N)")
   
-tm_shape(site) + 
-  tm_polygons(col = 'red', alpha = 0.5) + 
-  tm_shape(gce) + 
-  tm_borders(col = 'green') +
-  tm_basemap() + 
-  tm_shape(map) + 
-  tm_raster()
+# tm_shape(site) + 
+#   tm_polygons(col = 'red', alpha = 0.5) + 
+#   tm_shape(gce) + 
+#   tm_borders(col = 'green') +
+#   tm_basemap() + 
+#   tm_shape(map) + 
+#   tm_raster()
 
 
-library(ggmap)
-map <- get_map("Sapelo Island, Georgia", zoom = 9, source = "google")
-ggmap(map) + 
-  # coord_sf(crs = st_crs(4326)) + # force the ggplot2 map to be in 3857
-  # geom_sf(data = gce, aes(fill = area), inherit.aes = FALSE) + 
-  geom_sf(data = wbd2, aes(fill = sqkm_site), inherit.aes= FALSE)
+
+# map <- get_map("Sapelo Island, Georgia", zoom = 9, source = "google")
+# ggmap(map) + 
+#   # coord_sf(crs = st_crs(4326)) + # force the ggplot2 map to be in 3857
+#   # geom_sf(data = gce, aes(fill = area), inherit.aes = FALSE) + 
+#   geom_sf(data = wbd2, aes(fill = sqkm_site), inherit.aes= FALSE)
