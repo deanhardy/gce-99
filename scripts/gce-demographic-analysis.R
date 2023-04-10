@@ -55,6 +55,8 @@ wbd2 <- st_as_sf(st_union(wbd)) %>%
   rename(geometry = x) %>%
   mutate(sqkm_site = as.numeric(st_area(geometry) / 1e6))
 
+st_write(wbd, paste0(datadir, '/SAPHU10.shp'), 'ESRI Shapefile')
+
 ## define function following stackoverflow post
 # https://stackoverflow.com/questions/18887382/how-to-calculate-the-median-on-grouped-dataset
 ## but revised per variables from 
